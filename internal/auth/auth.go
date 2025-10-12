@@ -16,9 +16,9 @@ import (
 
 var jwtSecret = []byte("secret-key-change-in-production")
 
-type contextKey string
+type ContextKey string
 
-const userIDKey contextKey = "user_id"
+const userIDKey ContextKey = "user_id"
 
 type Handler struct {
 	store *db.Store
@@ -179,4 +179,8 @@ func Middleware(next http.Handler) http.Handler {
 func GetUserID(ctx context.Context) string {
 	userID, _ := ctx.Value(userIDKey).(string)
 	return userID
+}
+
+func GetUserIDKey() ContextKey {
+	return userIDKey
 }
