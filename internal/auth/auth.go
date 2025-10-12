@@ -184,3 +184,24 @@ func GetUserID(ctx context.Context) string {
 func GetUserIDKey() ContextKey {
 	return userIDKey
 }
+
+func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
+	userID := GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var user UserResponse
+	err := h.store.DB.QueryRowContext(r.Context(),
+		`SELECT id, email, display_name, role, status FROM users WHERE id = $1`,
+		userID,
+	).Scan(&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.Status)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
+}

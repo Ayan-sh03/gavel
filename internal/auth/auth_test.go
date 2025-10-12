@@ -189,3 +189,45 @@ func TestAuthMiddleware(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestGetMe(t *testing.T) {
+	ctx := context.Background()
+	store := setupTestDB(t, ctx)
+	defer store.Close()
+
+	handler := auth.NewHandler(store)
+
+	registerBody := map[string]string{
+		"email":        "me@example.com",
+		"password":     "password123",
+		"display_name": "Me User",
+	}
+	body, _ := json.Marshal(registerBody)
+	regReq := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewReader(body))
+	regReq.Header.Set("Content-Type", "application/json")
+	regRec := httptest.NewRecorder()
+	handler.Register(regRec, regReq)
+
+	var regResp map[string]interface{}
+	json.NewDecoder(regRec.Body).Decode(&regResp)
+	userID := regResp["id"].(string)
+
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	req = req.WithContext(context.WithValue(req.Context(), auth.GetUserIDKey(), userID))
+	rec := httptest.NewRecorder()
+
+	handler.GetMe(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp["email"] != "me@example.com" {
+		t.Fatalf("expected email me@example.com, got %v", resp["email"])
+	}
+}
