@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"bidding/internal/audit"
 	"bidding/internal/auth"
+	"bidding/internal/cache"
 	"bidding/internal/db"
 
 	"github.com/google/uuid"
@@ -137,12 +139,21 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request, auctionID string) {
+	// Try cache first
 	var auction AuctionResponse
+	err := cache.GetCachedAuction(r.Context(), auctionID, &auction)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Cache", "HIT")
+		json.NewEncoder(w).Encode(auction)
+		return
+	}
+
 	var startsAt, endsAt time.Time
 	var currentPriceCents, reservePriceCents *int64
 	var currentWinnerID *string
 
-	err := h.store.DB.QueryRowContext(r.Context(),
+	err = h.store.DB.QueryRowContext(r.Context(),
 		`SELECT id, listing_id, status, currency, starting_price_cents, reserve_price_cents,
 			min_increment_cents, starts_at, ends_at, extension_window_secs, current_price_cents,
 			current_winner_id, bid_count
@@ -163,7 +174,11 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request, auctionID string) 
 	auction.CurrentPriceCents = currentPriceCents
 	auction.CurrentWinnerID = currentWinnerID
 
+	// Cache for 5 seconds
+	cache.CacheAuction(r.Context(), auctionID, auction)
+
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Cache", "MISS")
 	json.NewEncoder(w).Encode(auction)
 }
 
@@ -270,6 +285,12 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request, auctionID strin
 		http.Error(w, "failed to cancel auction", http.StatusInternalServerError)
 		return
 	}
+
+	// Invalidate cache
+	cache.InvalidateAuction(r.Context(), auctionID)
+
+	// Audit log
+	go audit.LogAuctionCanceled(r.Context(), h.store, userID, auctionID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

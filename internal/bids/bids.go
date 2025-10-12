@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"bidding/internal/audit"
 	"bidding/internal/auth"
+	"bidding/internal/cache"
 	"bidding/internal/db"
 	"bidding/internal/realtime"
 
@@ -194,6 +196,12 @@ func (h *Handler) PlaceBid(w http.ResponseWriter, r *http.Request, auctionID str
 		http.Error(w, "failed to commit transaction", http.StatusInternalServerError)
 		return
 	}
+
+	// Invalidate cache
+	cache.InvalidateAuction(r.Context(), auctionID)
+
+	// Audit log
+	go audit.LogBidPlaced(r.Context(), h.store, userID, auctionID, req.AmountCents)
 
 	// Publish SSE event for bid placed
 	realtime.PublishBidPlaced(auctionID, realtime.BidPlacedData{
