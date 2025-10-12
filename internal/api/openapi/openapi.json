@@ -1,0 +1,1443 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Gavel Auction API",
+    "description": "Official REST API documentation for the Gavel auction platform. The service provides endpoints for authentication, listings, auctions, bidding, payments, watchlists, admin tooling, and real-time updates.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    { "name": "Health", "description": "Service health checks" },
+    { "name": "Auth", "description": "Authentication endpoints" },
+    { "name": "Users", "description": "Authenticated user profile" },
+    { "name": "Listings", "description": "Listing management" },
+    { "name": "Auctions", "description": "Auction lifecycle operations" },
+    { "name": "Bids", "description": "Bid placement and history" },
+    { "name": "Payments", "description": "Buyer payments and payouts" },
+    { "name": "Watchlist", "description": "Buyer watchlist management" },
+    { "name": "Admin", "description": "Administrative tooling" },
+    { "name": "Realtime", "description": "Server-Sent Events streaming" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Read service health",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create user",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Authenticate and fetch JWT token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/me": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get current user profile",
+        "responses": {
+          "200": {
+            "description": "Current user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listings": {
+      "post": {
+        "tags": ["Listings"],
+        "summary": "Create a listing",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateListingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Listing created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create listing",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Listings"],
+        "summary": "List listings",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Filter listings by category"
+          },
+          {
+            "name": "seller_id",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Filter listings by seller ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listings page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListListingsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listings/{id}": {
+      "get": {
+        "tags": ["Listings"],
+        "summary": "Get listing by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listing details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Listing not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Listings"],
+        "summary": "Update a listing",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateListingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the seller may update the listing",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": {
+            "description": "Listing not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auctions": {
+      "post": {
+        "tags": ["Auctions"],
+        "summary": "Create an auction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAuctionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Auction created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuctionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the listing owner may create an auction",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": {
+            "description": "Listing not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Auctions"],
+        "summary": "List auctions",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["scheduled", "live", "ended", "canceled"] },
+            "description": "Filter auctions by status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Auctions page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAuctionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auctions/{id}": {
+      "get": {
+        "tags": ["Auctions"],
+        "summary": "Get auction by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Auction details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuctionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Auction not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Auctions"],
+        "summary": "Update an auction (admin only)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAuctionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Auction update accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": {
+            "description": "Auction not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auctions/{id}/cancel": {
+      "post": {
+        "tags": ["Auctions"],
+        "summary": "Cancel an auction (seller)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Auction canceled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the seller can cancel before bids",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": {
+            "description": "Auction not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auctions/{id}/bids": {
+      "post": {
+        "tags": ["Bids"],
+        "summary": "Place a bid",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceBidRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Bid accepted",
+            "headers": {
+              "Location": {
+                "description": "Optional location of the created bid record",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaceBidResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": {
+            "description": "Sellers may not bid on their own auction",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": {
+            "description": "Auction not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "409": {
+            "description": "Bid did not meet the minimum increment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaceBidResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Auction is no longer live",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Bids"],
+        "summary": "List bids for an auction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bid history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetBidsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auctions/{id}/pay": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Create winner payment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Auction not finalized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the winner may pay",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": {
+            "description": "Auction not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/{id}": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Get payment details",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": {
+            "description": "Winner or admin access required",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": {
+            "description": "Payment not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auctions/{id}/watch": {
+      "post": {
+        "tags": ["Watchlist"],
+        "summary": "Add auction to watchlist",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Added to watchlist"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to add to watchlist",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Watchlist"],
+        "summary": "Remove auction from watchlist",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed from watchlist"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/watchlist": {
+      "get": {
+        "tags": ["Watchlist"],
+        "summary": "Get current user's watchlist",
+        "responses": {
+          "200": {
+            "description": "Watchlist entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetWatchlistResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/auctions": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Admin auction listing",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Filter by auction status"
+          },
+          {
+            "name": "seller_id",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Filter by seller ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admin auction overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminListAuctionsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Admin user listing",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["active", "suspended"] },
+            "description": "Filter by user status"
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["user", "admin"] },
+            "description": "Filter by role"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admin user overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminListUsersResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Update user (admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User update accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get platform statistics",
+        "responses": {
+          "200": {
+            "description": "Platform metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStatsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auctions/{id}/stream": {
+      "get": {
+        "tags": ["Realtime"],
+        "summary": "Subscribe to auction Server-Sent Events",
+        "description": "Establishes a streaming connection that delivers `connected`, `bid_placed`, `time_extended`, and `auction_ended` events.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream established",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "example": "event: bid_placed\\ndata: {\"bidder_id\":\"user-123\",\"amount_cents\":10500,\"current_price_cents\":10500,\"bid_count\":4,\"ends_at\":\"2024-10-01T12:00:00Z\"}\\n\\n"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "minLength": 8 },
+          "display_name": { "type": "string" }
+        },
+        "required": ["email", "password", "display_name"]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        },
+        "required": ["email", "password"]
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string", "description": "JWT bearer token valid for 24 hours" }
+        },
+        "required": ["token"]
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "display_name": { "type": "string" },
+          "role": { "type": "string", "enum": ["user", "admin"] },
+          "status": { "type": "string", "enum": ["active", "suspended"] }
+        },
+        "required": ["id", "email", "display_name", "role", "status"]
+      },
+      "CreateListingRequest": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "category": { "type": "string" },
+          "condition": { "type": "string" },
+          "cover_image_url": { "type": "string", "format": "uri", "nullable": true }
+        },
+        "required": ["title", "description", "category", "condition"]
+      },
+      "ListingResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "seller_id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "category": { "type": "string" },
+          "condition": { "type": "string" },
+          "cover_image_url": { "type": "string", "format": "uri", "nullable": true }
+        },
+        "required": ["id", "seller_id", "title", "description", "category", "condition"]
+      },
+      "ListListingsResponse": {
+        "type": "object",
+        "properties": {
+          "listings": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ListingResponse" }
+          }
+        },
+        "required": ["listings"]
+      },
+      "UpdateListingRequest": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "category": { "type": "string" },
+          "condition": { "type": "string" },
+          "cover_image_url": { "type": "string", "format": "uri" }
+        }
+      },
+      "CreateAuctionRequest": {
+        "type": "object",
+        "properties": {
+          "listing_id": { "type": "string", "format": "uuid" },
+          "currency": { "type": "string", "example": "USD" },
+          "starting_price_cents": { "type": "integer", "format": "int64", "minimum": 1 },
+          "reserve_price_cents": { "type": "integer", "format": "int64", "nullable": true },
+          "min_increment_cents": { "type": "integer", "format": "int64", "minimum": 1 },
+          "starts_at": { "type": "string", "format": "date-time" },
+          "ends_at": { "type": "string", "format": "date-time" },
+          "extension_window_secs": { "type": "integer", "format": "int32", "nullable": true }
+        },
+        "required": ["listing_id", "currency", "starting_price_cents", "min_increment_cents", "starts_at", "ends_at"]
+      },
+      "AuctionResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "listing_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["scheduled", "live", "ended", "canceled"] },
+          "currency": { "type": "string" },
+          "starting_price_cents": { "type": "integer", "format": "int64" },
+          "reserve_price_cents": { "type": "integer", "format": "int64", "nullable": true },
+          "min_increment_cents": { "type": "integer", "format": "int64" },
+          "starts_at": { "type": "string", "format": "date-time" },
+          "ends_at": { "type": "string", "format": "date-time" },
+          "extension_window_secs": { "type": "integer", "format": "int32" },
+          "current_price_cents": { "type": "integer", "format": "int64", "nullable": true },
+          "current_winner_id": { "type": "string", "format": "uuid", "nullable": true },
+          "bid_count": { "type": "integer", "format": "int32" }
+        },
+        "required": ["id", "listing_id", "status", "currency", "starting_price_cents", "min_increment_cents", "starts_at", "ends_at", "extension_window_secs", "bid_count"]
+      },
+      "ListAuctionsResponse": {
+        "type": "object",
+        "properties": {
+          "auctions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AuctionResponse" }
+          }
+        },
+        "required": ["auctions"]
+      },
+      "UpdateAuctionRequest": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["scheduled", "live", "ended", "canceled"] }
+        }
+      },
+      "PlaceBidRequest": {
+        "type": "object",
+        "properties": {
+          "amount_cents": { "type": "integer", "format": "int64", "minimum": 1 }
+        },
+        "required": ["amount_cents"]
+      },
+      "PlaceBidResponse": {
+        "type": "object",
+        "properties": {
+          "accepted": { "type": "boolean" },
+          "current_price_cents": { "type": "integer", "format": "int64" },
+          "next_min_cents": { "type": "integer", "format": "int64", "nullable": true },
+          "ends_at": { "type": "string", "format": "date-time" },
+          "bid_count": { "type": "integer", "format": "int32" },
+          "reason": { "type": "string", "nullable": true }
+        },
+        "required": ["accepted", "current_price_cents", "ends_at", "bid_count"]
+      },
+      "BidResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "bidder_id": { "type": "string", "format": "uuid" },
+          "amount_cents": { "type": "integer", "format": "int64" },
+          "placed_at": { "type": "string", "format": "date-time" },
+          "accepted": { "type": "boolean" }
+        },
+        "required": ["id", "bidder_id", "amount_cents", "placed_at", "accepted"]
+      },
+      "GetBidsResponse": {
+        "type": "object",
+        "properties": {
+          "bids": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BidResponse" }
+          }
+        },
+        "required": ["bids"]
+      },
+      "PayRequest": {
+        "type": "object",
+        "properties": {
+          "payment_method": { "type": "string", "description": "Payment method descriptor (mock)" }
+        }
+      },
+      "PaymentResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "auction_id": { "type": "string", "format": "uuid" },
+          "winner_id": { "type": "string", "format": "uuid" },
+          "amount_cents": { "type": "integer", "format": "int64" },
+          "status": { "type": "string", "enum": ["completed", "pending"] },
+          "payment_method": { "type": "string", "nullable": true }
+        },
+        "required": ["id", "auction_id", "winner_id", "amount_cents", "status"]
+      },
+      "WatchlistAuction": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "listing_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string" },
+          "currency": { "type": "string" },
+          "starting_price_cents": { "type": "integer", "format": "int64" },
+          "current_price_cents": { "type": "integer", "format": "int64", "nullable": true },
+          "min_increment_cents": { "type": "integer", "format": "int64" },
+          "starts_at": { "type": "string", "format": "date-time" },
+          "ends_at": { "type": "string", "format": "date-time" },
+          "bid_count": { "type": "integer", "format": "int32" }
+        },
+        "required": ["id", "listing_id", "status", "currency", "starting_price_cents", "min_increment_cents", "starts_at", "ends_at", "bid_count"]
+      },
+      "GetWatchlistResponse": {
+        "type": "object",
+        "properties": {
+          "auctions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WatchlistAuction" }
+          }
+        },
+        "required": ["auctions"]
+      },
+      "AdminAuctionListItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "listing_id": { "type": "string", "format": "uuid" },
+          "seller_id": { "type": "string", "format": "uuid" },
+          "seller_email": { "type": "string", "format": "email" },
+          "title": { "type": "string" },
+          "status": { "type": "string" },
+          "currency": { "type": "string" },
+          "starting_price_cents": { "type": "integer", "format": "int64" },
+          "current_price_cents": { "type": "integer", "format": "int64", "nullable": true },
+          "current_winner_id": { "type": "string", "format": "uuid", "nullable": true },
+          "bid_count": { "type": "integer", "format": "int32" },
+          "starts_at": { "type": "string", "format": "date-time" },
+          "ends_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "listing_id", "seller_id", "seller_email", "title", "status", "currency", "starting_price_cents", "bid_count", "starts_at", "ends_at", "created_at"]
+      },
+      "AdminListAuctionsResponse": {
+        "type": "object",
+        "properties": {
+          "auctions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AdminAuctionListItem" }
+          },
+          "total": { "type": "integer", "format": "int32" }
+        },
+        "required": ["auctions", "total"]
+      },
+      "AdminUserListItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "display_name": { "type": "string" },
+          "role": { "type": "string" },
+          "status": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "email", "display_name", "role", "status", "created_at"]
+      },
+      "AdminListUsersResponse": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AdminUserListItem" }
+          },
+          "total": { "type": "integer", "format": "int32" }
+        },
+        "required": ["users", "total"]
+      },
+      "AdminUpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["active", "suspended"] },
+          "role": { "type": "string", "enum": ["user", "admin"] }
+        }
+      },
+      "AdminStatsResponse": {
+        "type": "object",
+        "properties": {
+          "total_users": { "type": "integer", "format": "int32" },
+          "active_users": { "type": "integer", "format": "int32" },
+          "total_auctions": { "type": "integer", "format": "int32" },
+          "live_auctions": { "type": "integer", "format": "int32" },
+          "ended_auctions": { "type": "integer", "format": "int32" },
+          "total_bids": { "type": "integer", "format": "int32" },
+          "total_revenue_cents": { "type": "integer", "format": "int64" },
+          "avg_bids_per_auction": { "type": "number", "format": "float" }
+        },
+        "required": ["total_users", "active_users", "total_auctions", "live_auctions", "ended_auctions", "total_bids", "total_revenue_cents", "avg_bids_per_auction"]
+      },
+      "ActionStatusResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string" }
+        },
+        "required": ["id", "status"]
+      }
+    }
+  },
+  "security": [
+    { "BearerAuth": [] }
+  ]
+}

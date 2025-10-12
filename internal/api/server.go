@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"bidding/internal/admin"
+	"bidding/internal/api/openapi"
 	"bidding/internal/auctions"
 	"bidding/internal/auth"
 	"bidding/internal/bids"
@@ -29,7 +32,19 @@ func NewServer() http.Handler {
 	}
 	migrationsPath := os.Getenv("MIGRATIONS_PATH")
 	if migrationsPath == "" {
-		migrationsPath = "internal/db/migrations"
+		_, currentFile, _, _ := runtime.Caller(0)
+		migrationsPath = filepath.Join(filepath.Dir(currentFile), "..", "db", "migrations")
+	} else if !filepath.IsAbs(migrationsPath) {
+		if abs, err := filepath.Abs(migrationsPath); err == nil {
+			migrationsPath = abs
+		}
+	}
+	if filepath.IsAbs(migrationsPath) {
+		if wd, err := os.Getwd(); err == nil {
+			if rel, err := filepath.Rel(wd, migrationsPath); err == nil {
+				migrationsPath = rel
+			}
+		}
 	}
 
 	store, err := db.Open(context.Background(), dsn, migrationsPath)
@@ -50,12 +65,20 @@ func NewServer() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	specHandler := openapi.Handler()
+	uiHandler := openapi.UI()
+
 	// Health check
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
+
+	// API documentation
+	r.Get("/openapi.json", specHandler.ServeHTTP)
+	r.Get("/docs", uiHandler.ServeHTTP)
+	r.Get("/docs/", uiHandler.ServeHTTP)
 
 	// Auth routes
 	r.Post("/auth/register", authHandler.Register)
