@@ -8,6 +8,7 @@ import (
 
 	"bidding/internal/auth"
 	"bidding/internal/db"
+	"bidding/internal/realtime"
 
 	"github.com/google/uuid"
 )
@@ -192,6 +193,24 @@ func (h *Handler) PlaceBid(w http.ResponseWriter, r *http.Request, auctionID str
 	if err := tx.Commit(); err != nil {
 		http.Error(w, "failed to commit transaction", http.StatusInternalServerError)
 		return
+	}
+
+	// Publish SSE event for bid placed
+	realtime.PublishBidPlaced(auctionID, realtime.BidPlacedData{
+		BidderID:          userID,
+		AmountCents:       req.AmountCents,
+		CurrentPriceCents: req.AmountCents,
+		BidCount:          auction.BidCount + 1,
+		EndsAt:            newEndsAt.Format(time.RFC3339),
+	})
+
+	// Publish time extension event if time was extended
+	if newEndsAt.After(auction.EndsAt) {
+		extendedBy := int(newEndsAt.Sub(auction.EndsAt).Seconds())
+		realtime.PublishTimeExtended(auctionID, realtime.TimeExtendedData{
+			NewEndsAt:  newEndsAt.Format(time.RFC3339),
+			ExtendedBy: extendedBy,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")

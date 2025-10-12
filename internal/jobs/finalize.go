@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"bidding/internal/db"
+	"bidding/internal/realtime"
 
 	"github.com/google/uuid"
 )
@@ -132,6 +133,14 @@ func (f *AuctionFinalizer) FinalizeAuction(ctx context.Context, auctionID string
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+
+	// Publish SSE event for auction ended
+	realtime.PublishAuctionEnded(auctionID, realtime.AuctionEndedData{
+		AuctionID:  auctionID,
+		Status:     "ended",
+		WinnerID:   auction.WinnerID,
+		FinalPrice: auction.CurrentPriceCents,
+	})
 
 	return nil
 }
