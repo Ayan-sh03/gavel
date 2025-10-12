@@ -135,11 +135,19 @@ func (f *AuctionFinalizer) FinalizeAuction(ctx context.Context, auctionID string
 	}
 
 	// Publish SSE event for auction ended
+	var winnerID *string
+	if auction.CurrentWinnerID.Valid {
+		winnerID = &auction.CurrentWinnerID.String
+	}
+	var finalPrice *int64
+	if auction.CurrentPriceCents.Valid {
+		finalPrice = &auction.CurrentPriceCents.Int64
+	}
 	realtime.PublishAuctionEnded(auctionID, realtime.AuctionEndedData{
 		AuctionID:  auctionID,
 		Status:     "ended",
-		WinnerID:   auction.WinnerID,
-		FinalPrice: auction.CurrentPriceCents,
+		WinnerID:   winnerID,
+		FinalPrice: finalPrice,
 	})
 
 	return nil
