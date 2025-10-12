@@ -148,3 +148,89 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(ListListingsResponse{Listings: listings})
 }
+
+type UpdateListingRequest struct {
+	Title          *string `json:"title,omitempty"`
+	Description    *string `json:"description,omitempty"`
+	Category       *string `json:"category,omitempty"`
+	Condition      *string `json:"condition,omitempty"`
+	CoverImageURL  *string `json:"cover_image_url,omitempty"`
+}
+
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request, listingID string) {
+	userID := auth.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var sellerID string
+	err := h.store.DB.QueryRowContext(r.Context(), `SELECT seller_id FROM listings WHERE id = $1`, listingID).Scan(&sellerID)
+	if err != nil {
+		http.Error(w, "listing not found", http.StatusNotFound)
+		return
+	}
+
+	if sellerID != userID {
+		http.Error(w, "only the seller can update this listing", http.StatusForbidden)
+		return
+	}
+
+	var req UpdateListingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	query := `UPDATE listings SET updated_at = NOW()`
+	args := []interface{}{}
+	argIdx := 1
+
+	if req.Title != nil {
+		query += fmt.Sprintf(", title = $%d", argIdx)
+		args = append(args, *req.Title)
+		argIdx++
+	}
+	if req.Description != nil {
+		query += fmt.Sprintf(", description = $%d", argIdx)
+		args = append(args, *req.Description)
+		argIdx++
+	}
+	if req.Category != nil {
+		query += fmt.Sprintf(", category = $%d", argIdx)
+		args = append(args, *req.Category)
+		argIdx++
+	}
+	if req.Condition != nil {
+		query += fmt.Sprintf(", condition = $%d", argIdx)
+		args = append(args, *req.Condition)
+		argIdx++
+	}
+	if req.CoverImageURL != nil {
+		query += fmt.Sprintf(", cover_image_url = $%d", argIdx)
+		args = append(args, *req.CoverImageURL)
+		argIdx++
+	}
+
+	query += fmt.Sprintf(" WHERE id = $%d", argIdx)
+	args = append(args, listingID)
+
+	_, err = h.store.DB.ExecContext(r.Context(), query, args...)
+	if err != nil {
+		http.Error(w, "failed to update listing", http.StatusInternalServerError)
+		return
+	}
+
+	var listing ListingResponse
+	err = h.store.DB.QueryRowContext(r.Context(),
+		`SELECT id, seller_id, title, description, category, condition, COALESCE(cover_image_url, '') FROM listings WHERE id = $1`,
+		listingID,
+	).Scan(&listing.ID, &listing.SellerID, &listing.Title, &listing.Description, &listing.Category, &listing.Condition, &listing.CoverImageURL)
+	if err != nil {
+		http.Error(w, "failed to fetch listing", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(listing)
+}

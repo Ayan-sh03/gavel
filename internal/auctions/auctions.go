@@ -228,3 +228,102 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(ListAuctionsResponse{Auctions: auctions})
 }
+
+func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request, auctionID string) {
+	userID := auth.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var auction struct {
+		SellerID string
+		BidCount int
+	}
+
+	err := h.store.DB.QueryRowContext(r.Context(),
+		`SELECT (SELECT seller_id FROM listings WHERE id = auctions.listing_id) as seller_id, bid_count
+		 FROM auctions WHERE id = $1`,
+		auctionID,
+	).Scan(&auction.SellerID, &auction.BidCount)
+
+	if err != nil {
+		http.Error(w, "auction not found", http.StatusNotFound)
+		return
+	}
+
+	if auction.SellerID != userID {
+		http.Error(w, "only the seller can cancel this auction", http.StatusForbidden)
+		return
+	}
+
+	if auction.BidCount > 0 {
+		http.Error(w, "cannot cancel auction with bids", http.StatusForbidden)
+		return
+	}
+
+	_, err = h.store.DB.ExecContext(r.Context(),
+		`UPDATE auctions SET status = 'canceled', updated_at = NOW() WHERE id = $1`,
+		auctionID,
+	)
+	if err != nil {
+		http.Error(w, "failed to cancel auction", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id":     auctionID,
+		"status": "canceled",
+	})
+}
+
+type UpdateAuctionRequest struct {
+	Status *string `json:"status,omitempty"`
+}
+
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request, auctionID string) {
+	userID := auth.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var userRole string
+	err := h.store.DB.QueryRowContext(r.Context(), `SELECT role FROM users WHERE id = $1`, userID).Scan(&userRole)
+	if err != nil || userRole != "admin" {
+		http.Error(w, "only admins can update auctions", http.StatusForbidden)
+		return
+	}
+
+	var req UpdateAuctionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	query := `UPDATE auctions SET updated_at = NOW()`
+	args := []interface{}{}
+	argIdx := 1
+
+	if req.Status != nil {
+		query += fmt.Sprintf(", status = $%d", argIdx)
+		args = append(args, *req.Status)
+		argIdx++
+	}
+
+	query += fmt.Sprintf(" WHERE id = $%d", argIdx)
+	args = append(args, auctionID)
+
+	_, err = h.store.DB.ExecContext(r.Context(), query, args...)
+	if err != nil {
+		http.Error(w, "failed to update auction", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id":     auctionID,
+		"status": "updated",
+	})
+}

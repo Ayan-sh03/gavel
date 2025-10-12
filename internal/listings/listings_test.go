@@ -196,3 +196,40 @@ func TestListListings(t *testing.T) {
 		t.Fatalf("expected non-empty listings array, got %v", resp)
 	}
 }
+
+func TestUpdateListing(t *testing.T) {
+	ctx := context.Background()
+	store := setupTestDB(t, ctx)
+	defer store.Close()
+
+	userID := createTestUser(t, store)
+	listingID := createTestListing(t, store, userID)
+
+	handler := listings.NewHandler(store)
+
+	reqBody := map[string]interface{}{
+		"title":       "Updated Title",
+		"description": "Updated description",
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPatch, "/listings/"+listingID, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(req.Context(), auth.GetUserIDKey(), userID))
+	rec := httptest.NewRecorder()
+
+	handler.Update(rec, req, listingID)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp["title"] != "Updated Title" {
+		t.Fatalf("expected title to be updated, got %v", resp["title"])
+	}
+}
